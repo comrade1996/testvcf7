@@ -1,0 +1,65 @@
+﻿@inject IJSRuntime JSRuntime
+
+<EditForm Model="@contact" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <InputText id="name" @bind-Value="contact.Name" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label for="phone">Phone:</label>
+        <InputText id="phone" @bind-Value="contact.Phone" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label for="email">Email:</label>
+        <InputText id="email" @bind-Value="contact.Email" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label for="image">Image:</label>
+        <InputFile OnChange="@OnImageFileChange" accept="image/*" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(contact.ImageDataUrl))
+    {
+        <img src="@contact.ImageDataUrl" alt="Contact Image" style="max-width: 200px; margin-top: 10px;" />
+    }
+
+    <button type="submit" class="btn btn-primary mt-3">Save Contact</button>
+</EditForm>
+
+@code {
+    private Contact contact = new Contact();
+
+    private async Task OnImageFileChange(InputFileChangeEventArgs e)
+    {
+        var imageFile = e.File;
+        if (imageFile != null)
+        {
+            var resizedImage = await imageFile.RequestImageFileAsync("image/jpeg", 300, 300);
+            var buffer = new byte[resizedImage.Size];
+            await resizedImage.OpenReadStream().ReadAsync(buffer);
+            var imageData = Convert.ToBase64String(buffer);
+            contact.ImageDataUrl = $"data:image/jpeg;base64,{imageData}";
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        // Convert contact to vCard format
+        string vCard = $@"BEGIN:VCARD
+VERSION:3.0
+FN:{contact.Name}
+TEL:{contact.Phone}
+EMAIL:{contact.Email}
+PHOTO;ENCODING=b;TYPE=JPEG:{contact.ImageDataUrl.Split(',')[1]}
+END:VCARD";
+
+        // Use JS interop to trigger download
+        await JSRuntime.InvokeVoidAsync("saveAsFile", $"{contact.Name}.vcf", vCard);
+    }
+}
